@@ -1,26 +1,21 @@
-{ self }:
-{
+{self}: {
   config,
   lib,
   pkgs,
   ...
 }:
-
-with lib;
-
-let
+with lib; let
   cfg = config.services.onemcp-agent;
 
   # Format the configuration to JSON
   configFile = pkgs.writeText "mcp.json" (builtins.toJSON cfg.settings);
-in
-{
+in {
   options.services.onemcp-agent = {
     enable = mkEnableOption "1MCP Agent service";
 
     package = mkOption {
       type = types.package;
-      default = self.packages.${pkgs.system}.default;
+      default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
       description = "The 1MCP agent package to use.";
     };
 
@@ -38,13 +33,13 @@ in
 
     args = mkOption {
       type = types.listOf types.str;
-      default = [ ];
+      default = [];
       description = "Additional command-line arguments to pass to the 1MCP agent.";
     };
 
     settings = mkOption {
       type = types.attrs;
-      default = { };
+      default = {};
       description = ''
         Configuration settings for the 1MCP agent.
         These will be written to the mcp.json configuration file.
@@ -63,7 +58,7 @@ in
 
     environment = mkOption {
       type = types.attrsOf types.str;
-      default = { };
+      default = {};
       description = "Extra environment variables to pass to the service.";
     };
 
@@ -95,7 +90,7 @@ in
             };
             args = mkOption {
               type = types.listOf types.str;
-              default = [ ];
+              default = [];
               description = "Arguments to pass to the command.";
             };
             cwd = mkOption {
@@ -105,7 +100,7 @@ in
             };
             env = mkOption {
               type = types.attrsOf types.str;
-              default = { };
+              default = {};
               description = "Environment variables for the server.";
             };
             inheritParentEnv = mkOption {
@@ -115,7 +110,7 @@ in
             };
             envFilter = mkOption {
               type = types.listOf types.str;
-              default = [ ];
+              default = [];
               description = "Patterns for filtering inherited environment variables.";
             };
             restartOnExit = mkOption {
@@ -135,7 +130,7 @@ in
             };
             tags = mkOption {
               type = types.listOf types.str;
-              default = [ ];
+              default = [];
               description = "Tags for routing and access control.";
             };
             connectionTimeout = mkOption {
@@ -156,86 +151,89 @@ in
           };
         }
       );
-      default = { };
+      default = {};
       description = "Declarative configuration of MCP servers.";
     };
   };
 
   config = mkIf cfg.enable {
-    services.onemcp-agent.settings.mcpServers = lib.mapAttrs (
-      name: server:
-      let
-        fullConfig = {
-          inherit (server)
-            transport
-            tags
-            enabled
-            connectionTimeout
-            requestTimeout
-            ;
-        }
-        // (
-          if server.transport == "stdio" then
+    services.onemcp-agent.settings.mcpServers =
+      lib.mapAttrs (
+        name: server: let
+          fullConfig =
             {
-              command =
-                if server.command != null && lib.types.package.check server.command then
-                  lib.getExe server.command
-                else
-                  server.command;
-              inherit (server)
-                args
-                cwd
-                env
-                inheritParentEnv
-                envFilter
-                restartOnExit
-                maxRestarts
-                restartDelay
+              inherit
+                (server)
+                transport
+                tags
+                enabled
+                connectionTimeout
+                requestTimeout
                 ;
             }
-          else
-            {
-              inherit (server) url;
-            }
-        );
-      in
-      lib.filterAttrs (
-        n: v:
-        v != null
-        && v != [ ]
-        && v != { }
-        && !(v == false && (n == "restartOnExit" || n == "inheritParentEnv"))
-        && !(v == true && n == "enabled")
-      ) fullConfig
-    ) cfg.servers;
+            // (
+              if server.transport == "stdio"
+              then {
+                command =
+                  if server.command != null && lib.types.package.check server.command
+                  then lib.getExe server.command
+                  else server.command;
+                inherit
+                  (server)
+                  args
+                  cwd
+                  env
+                  inheritParentEnv
+                  envFilter
+                  restartOnExit
+                  maxRestarts
+                  restartDelay
+                  ;
+              }
+              else {
+                inherit (server) url;
+              }
+            );
+        in
+          lib.filterAttrs (
+            n: v:
+              v
+              != null
+              && v != []
+              && v != {}
+              && !(v == false && (n == "restartOnExit" || n == "inheritParentEnv"))
+              && !(v == true && n == "enabled")
+          )
+          fullConfig
+      )
+      cfg.servers;
 
     systemd.user.services.onemcp-agent = {
       Unit = {
         Description = "1MCP Agent Service";
-        After = [ "network.target" ];
+        After = ["network.target"];
       };
 
       Service = {
         ExecStart = "${cfg.package}/bin/1mcp --config ${configFile}${
-          lib.optionalString (cfg.args != [ ]) " ${lib.escapeShellArgs cfg.args}"
+          lib.optionalString (cfg.args != []) " ${lib.escapeShellArgs cfg.args}"
         }";
-        Environment = [
-          "ONE_MCP_PORT=${toString cfg.port}"
-          "ONE_MCP_LOG_FILE=${cfg.logFile}"
-          "NODE_ENV=production"
-        ]
-        ++ (mapAttrsToList (n: v: "${n}=${v}") cfg.environment);
-        ExecStartPre =
-          let
-            logDir = builtins.dirOf cfg.logFile;
-          in
-          "${pkgs.coreutils}/bin/mkdir -p ${logDir}";
+        Environment =
+          [
+            "ONE_MCP_PORT=${toString cfg.port}"
+            "ONE_MCP_LOG_FILE=${cfg.logFile}"
+            "NODE_ENV=production"
+          ]
+          ++ (mapAttrsToList (n: v: "${n}=${v}") cfg.environment);
+        ExecStartPre = let
+          logDir = builtins.dirOf cfg.logFile;
+        in "${pkgs.coreutils}/bin/mkdir -p ${logDir}";
         Restart = "on-failure";
         RestartSec = "10";
       };
 
       Install = {
-        WantedBy = [ "default.target" ];
+        WantedBy = ["default.target"];
       };
     };
   };
