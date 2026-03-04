@@ -4,19 +4,19 @@
 
 pkgs.stdenv.mkDerivation rec {
   pname = "1mcp-agent";
-  version = "0.29.0-beta7";
+  version = "0.30.0";
 
   src = pkgs.fetchFromGitHub {
     owner = "1mcp-app";
     repo = "agent";
     rev = "v${version}";
-    hash = "sha256-WgdOSmckr3K+VwIJrkCFFUAxa70EssX3I/DeaO7CEfc=";
+    hash = "sha256-l2gtnzxnoo3CgkgeNrJkfjM0by9AvbP2vO8TCkYM1Qo=";
   };
 
   pnpmDeps = pkgs.fetchPnpmDeps {
     inherit pname version src;
     fetcherVersion = 3;
-    hash = "sha256-nVmKnqvS36EXIUlAi2xMysMoANpWVQAkc4pQJzcdH2w=";
+    hash = "sha256-IQwBi+VhmqTFg3aaIC3x2lt3GgCcJkk41y3X31VD15A=";
   };
 
   nativeBuildInputs = with pkgs; [
