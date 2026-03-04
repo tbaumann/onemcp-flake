@@ -1,39 +1,40 @@
-{ self }:
-
-pkgs: {
+{self}: pkgs: {
   name = "1mcp-nixos-test";
-  nodes.machine =
-    { pkgs, lib, ... }:
-    {
-      imports = [ self.nixosModules.onemcp ];
+  nodes.machine = {
+    pkgs,
+    lib,
+    ...
+  }: {
+    imports = [self.nixosModules.onemcp];
 
-      services.onemcp-agent = {
-        enable = true;
-        servers = {
-          "test-pkg" = {
-            transport = "stdio";
-            command = pkgs.hello;
-            args = [
-              "-g"
-              "Hello from MCP"
-            ];
-            envFilter = [ "PATH" ];
-            tags = [ "test" ];
-          };
-          "test-http" = {
-            transport = "http";
-            url = "http://localhost:8080/sse";
-            enabled = true;
-            tags = [ "remote" ];
-          };
-          "test-str" = {
-            transport = "stdio";
-            command = "${pkgs.coreutils}/bin/echo";
-            args = [ "Raw string command" ];
-          };
+    services.onemcp-agent = {
+      enable = true;
+      args = ["--lazy-mode"];
+      servers = {
+        "test-pkg" = {
+          transport = "stdio";
+          command = pkgs.hello;
+          args = [
+            "-g"
+            "Hello from MCP"
+          ];
+          envFilter = ["PATH"];
+          tags = ["test"];
+        };
+        "test-http" = {
+          transport = "http";
+          url = "http://localhost:8080/sse";
+          enabled = true;
+          tags = ["remote"];
+        };
+        "test-str" = {
+          transport = "stdio";
+          command = "${pkgs.coreutils}/bin/echo";
+          args = ["Raw string command"];
         };
       };
     };
+  };
   testScript = ''
     machine.wait_for_unit("onemcp-agent.service")
 

@@ -36,6 +36,12 @@ in
       description = "Path to the log file (sets ONE_MCP_LOG_FILE).";
     };
 
+    args = mkOption {
+      type = types.listOf types.str;
+      default = [ ];
+      description = "Additional command-line arguments to pass to the 1MCP agent.";
+    };
+
     settings = mkOption {
       type = types.attrs;
       default = { };
@@ -210,7 +216,9 @@ in
       };
 
       Service = {
-        ExecStart = "${cfg.package}/bin/1mcp --config ${configFile}";
+        ExecStart = "${cfg.package}/bin/1mcp --config ${configFile}${
+          lib.optionalString (cfg.args != [ ]) " ${lib.escapeShellArgs cfg.args}"
+        }";
         Environment = [
           "ONE_MCP_PORT=${toString cfg.port}"
           "ONE_MCP_LOG_FILE=${cfg.logFile}"
